@@ -369,6 +369,26 @@
         let currentGuestName = "";
         let qrCodeObj = null;
 
+        // Encode Khmer names compactly so links do not contain long %E1%9E... sequences.
+        function encodeGuestNameShort(name) {
+            // Most Khmer code points fit into one byte using a reversible custom map.
+            // Other Unicode characters are escaped as marker + 4-byte code point.
+            const bytes = [];
+            for (const ch of name) {
+                const cp = ch.codePointAt(0);
+                if (cp > 0 && cp < 0x80) {
+                    bytes.push(cp);
+                } else if (cp >= 0x1780 && cp <= 0x17FF) {
+                    bytes.push(0x80 + cp - 0x1780);
+                } else {
+                    bytes.push(0, (cp >>> 24) & 255, (cp >>> 16) & 255, (cp >>> 8) & 255, cp & 255);
+                }
+            }
+            let binary = '';
+            for (const byte of bytes) binary += String.fromCharCode(byte);
+            return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+        }
+
         // ប្រើ encodeURIComponent / decodeURIComponent ដោយផ្ទាល់ដើម្បីចៀសវាងបញ្ហា Base64 ចេញជាកូដអង់គ្លេស/លេខ
         function safeEncode(str) {
             return encodeURIComponent(str);
@@ -418,24 +438,11 @@
             }
 
             currentGuestName = name;
+
+            // ប្រើ Base64URL ដើម្បីឱ្យ Link ខ្លីជាងការប្រើ %E1%9E... សម្រាប់អក្សរខ្មែរ
             const baseUrl = "https://pisethandmonypenita.pages.dev";
-            let response;
-            try {
-                response = await fetch('/api/invitations', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name })
-                });
-            } catch (error) {
-                alert('មិនអាចភ្ជាប់ទៅប្រព័ន្ធបានទេ។ សូមពិនិត្យថាបានដំឡើង Cloudflare Pages Functions និង KV namespace រួចហើយ។');
-                return;
-            }
-            if (!response.ok) {
-                alert('មិនអាចរក្សាទុកឈ្មោះភ្ញៀវបានទេ។ សូមពិនិត្យការកំណត់ KV namespace INVITATIONS។');
-                return;
-            }
-            const saved = await response.json();
-            actualLinkToCopy = `${baseUrl}/?i=${encodeURIComponent(saved.id)}`;
+            const shortName = encodeGuestNameShort(name);
+            actualLinkToCopy = `${baseUrl}/?g=${shortName}`;
             encodedQrLink = actualLinkToCopy;
 
             document.getElementById('generatedLinkText').innerText = actualLinkToCopy;
