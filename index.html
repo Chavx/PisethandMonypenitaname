@@ -310,7 +310,7 @@
         <h2 class="names">ឃឿន ពិសិដ្ឋ & ស៊ុន មុនីពនិតា</h2>
         
         <label for="guestName">ឈ្មោះភ្ញៀវ៖</label>
-        <input type="text" id="guestName" placeholder="ឧ. លោក រតនា និង រតនា">
+        <input type="text" id="guestName" placeholder="ឧ. លោក និង លោកស្រី សុខ សុភា">
         
         <button onclick="generateLink()">បង្កើតលីងអញ្ជើញ & QR Code</button>
 
@@ -382,34 +382,28 @@
             }
         }
 
-        // បើកកាតភ្ញៀវ៖ ឈ្មោះនៅក្នុង link មានអាទិភាព ដើម្បីកុំឱ្យបង្ហាញឈ្មោះអ្នកគ្រប់គ្រងជំនួសភ្ញៀវ។
+        // Auto check if URL has ?to= parameter on page load and decode properly
         window.addEventListener('DOMContentLoaded', async () => {
             const urlParams = new URLSearchParams(window.location.search);
             const id = urlParams.get('i');
-            const guestNameFromLink = urlParams.get('to');
-            const generatorSection = document.getElementById('generatorSection');
-            const guestSection = document.getElementById('guestInvitationSection');
-            const guestNameElement = document.getElementById('displayGuestName');
-
-            if (guestNameFromLink && guestNameFromLink.trim()) {
-                generatorSection.style.display = 'none';
-                guestSection.style.display = 'block';
-                guestNameElement.textContent = guestNameFromLink.trim();
-                return;
-            }
+            const legacyName = urlParams.get('to');
 
             if (id) {
-                generatorSection.style.display = 'none';
-                guestSection.style.display = 'block';
-                guestNameElement.textContent = 'កំពុងបើកកាតអញ្ជើញ...';
+                document.getElementById('generatorSection').style.display = 'none';
+                document.getElementById('guestInvitationSection').style.display = 'block';
+                document.getElementById('displayGuestName').innerText = 'កំពុងបើកកាតអញ្ជើញ...';
                 try {
                     const response = await fetch(`/api/invitations/${encodeURIComponent(id)}`);
                     if (!response.ok) throw new Error('not-found');
                     const data = await response.json();
-                    guestNameElement.textContent = (data && data.name) ? data.name : 'ភ្ញៀវកិត្តិយស';
+                    document.getElementById('displayGuestName').innerText = data.name || 'ភ្ញៀវកិត្តិយស';
                 } catch (error) {
-                    guestNameElement.textContent = 'រកមិនឃើញកាតអញ្ជើញនេះទេ';
+                    document.getElementById('displayGuestName').innerText = 'រកមិនឃើញកាតអញ្ជើញនេះទេ';
                 }
+            } else if (legacyName) {
+                document.getElementById('generatorSection').style.display = 'none';
+                document.getElementById('guestInvitationSection').style.display = 'block';
+                document.getElementById('displayGuestName').innerText = legacyName;
             }
         });
 
@@ -424,8 +418,7 @@
             }
 
             currentGuestName = name;
-            // ប្រើ domain មង្គលការផ្ទាល់ ដើម្បីកុំឱ្យបាន link file:// ឬ domain ផ្សេង។
-            const baseUrl = 'https://pisethandmonypenita.pages.dev';
+            const baseUrl = window.location.origin;
             let response;
             try {
                 response = await fetch('/api/invitations', {
@@ -434,44 +427,35 @@
                     body: JSON.stringify({ name })
                 });
             } catch (error) {
-                alert('មិនអាចភ្ជាប់ទៅប្រព័ន្ធបានទេ។ សូមពិនិត្យ Cloudflare Pages Functions និង KV namespace INVITATIONS។');
+                alert('មិនអាចភ្ជាប់ទៅប្រព័ន្ធបានទេ។ សូមពិនិត្យថាបានដំឡើង Cloudflare Pages Functions និង KV namespace រួចហើយ។');
                 return;
             }
             if (!response.ok) {
-                alert('មិនអាចរក្សាទុកឈ្មោះភ្ញៀវបានទេ។ សូមពិនិត្យការកំណត់ Cloudflare Pages Functions និង KV namespace INVITATIONS។');
+                alert('មិនអាចរក្សាទុកឈ្មោះភ្ញៀវបានទេ។ សូមពិនិត្យការកំណត់ KV namespace INVITATIONS។');
                 return;
             }
-
-            let saved;
-            try {
-                saved = await response.json();
-            } catch (error) {
-                alert('ប្រព័ន្ធមិនបានបញ្ជូនលេខសម្គាល់កាតត្រឡប់មកវិញទេ។ សូមពិនិត្យ API /api/invitations។');
-                return;
-            }
-            if (!saved || !saved.id) {
-                alert('ប្រព័ន្ធមិនបានបង្កើតលេខសម្គាល់កាតត្រឹមត្រូវទេ។ សូមពិនិត្យ API /api/invitations។');
-                return;
-            }
-
-            // រក្សា ID សម្រាប់ប្រព័ន្ធ KV ហើយបន្ថែមឈ្មោះជាជម្រើសសុវត្ថិភាព
-            // ដូច្នេះកាតបង្ហាញឈ្មោះដែលបានវាយពិតៗ មិនមែនឈ្មោះគណនីអ្នកបង្កើតទេ។
-            actualLinkToCopy = `${baseUrl}/?i=${encodeURIComponent(saved.id)}&to=${encodeURIComponent(name)}`;
+            const saved = await response.json();
+            actualLinkToCopy = `${baseUrl}/?i=${encodeURIComponent(saved.id)}`;
             encodedQrLink = actualLinkToCopy;
 
             document.getElementById('generatedLinkText').innerText = actualLinkToCopy;
             document.getElementById('resultBox').style.display = 'block';
 
-            const qrcodeContainer = document.getElementById('qrcode');
-            qrcodeContainer.innerHTML = '';
 
+            const qrcodeContainer = document.getElementById('qrcode');
+            if (!qrcodeContainer) {
+                alert('មិនអាចរកឃើញប្រអប់ QR Code បានទេ។');
+                return;
+            }
+            qrcodeContainer.innerHTML = "";
+            
             try {
                 qrCodeObj = new QRCode(qrcodeContainer, {
                     text: encodedQrLink,
                     width: 170,
                     height: 170,
-                    colorDark: '#000000',
-                    colorLight: '#ffffff',
+                    colorDark: "#000000",
+                    colorLight: "#ffffff",
                     correctLevel: QRCode.CorrectLevel.H
                 });
             } catch (error) {
