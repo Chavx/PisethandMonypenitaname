@@ -418,7 +418,7 @@
             }
 
             currentGuestName = name;
-            const baseUrl = window.location.origin;
+            const baseUrl = 'https://pisethandmonypenita.pages.dev';
             let response;
             try {
                 response = await fetch('/api/invitations', {
@@ -442,6 +442,7 @@
             document.getElementById('resultBox').style.display = 'block';
 
 
+            const qrcodeContainer = document.getElementById("qrcode");
             qrcodeContainer.innerHTML = "";
             
             try {
